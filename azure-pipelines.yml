@@ -16,7 +16,7 @@ pool:
   vmImage: 'Ubuntu-16.04'
 
 variables:
-  IMAGE_NAME: chelnak/status-cake-exporter
+  IMAGE_NAME: junow/status-cake-exporter
 
 steps:
 
@@ -64,8 +64,8 @@ steps:
   displayName: Create a GitHub GitHubRelease
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
   inputs:
-    gitHubConnection: 'chelnak'
-    repositoryName: 'chelnak/status-cake-exporter'
+    gitHubConnection: 'junow'
+    repositoryName: 'junow/status-cake-exporter'
     action: 'create'
     target: '$(Build.SourceVersion)'
     tagSource: 'manual'
