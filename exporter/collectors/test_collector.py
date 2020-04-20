@@ -2,6 +2,7 @@
 
 import sys
 import logging
+import operator
 from prometheus_client.core import GaugeMetricFamily
 from status_cake_client import tests as t
 from status_cake_client import maintenance as m
@@ -43,6 +44,21 @@ def parse_test_details_response(r):
 
     return t
 
+
+def parse_test_perf_response(r):
+    t = []
+    for i in r:
+        for k, v in i.items():
+            t.append(
+                {
+                    "test_id": str(k),
+                    "test_perf_time": str(max(v.items(), key=operator.itemgetter(0))[1].get("Performance"))
+                }
+            )
+
+    return t
+
+
 class TestCollector(object):
 
     def __init__(self, username, api_key, tags):
@@ -57,21 +73,29 @@ class TestCollector(object):
         try:
 
             maintenance = m.get_maintenance(self.api_key, self.username)
-            #Grab the test_ids from the response
+            # Grab the test_ids from the response
             m_test_id_list = [i['all_tests'] for i in maintenance.json()['data']]
-            #Flatten the test_ids into a list
+            # Flatten the test_ids into a list
             m_test_id_flat_list = [item for sublist in m_test_id_list for item in sublist]
             tests = t.get_tests(self.api_key, self.username, self.tags)
             parsed_tests = parse_test_response(tests, m_test_id_flat_list)
 
-            #Exclude test_ids with active maintenance
+            # Exclude test_ids with active maintenance
             test_id_list = [i['TestID'] for i in tests.json() if str(i['TestID']) not in m_test_id_flat_list]
+            
             test_details = []
             for i in test_id_list:
                 test_details.append(
                     t.get_test_details(self.api_key, self.username, i).json()
                 )
             parsed_test_details = parse_test_details_response(test_details)
+
+            test_perf = []
+            for i in test_id_list:
+                test_perf.append({i: t.get_test_perf(self.api_key, self.username, i).json()})
+
+            parsed_test_perf = parse_test_perf_response(test_perf)
+            logger.debug(parsed_test_perf)
 
             # status_cake_test_info - gauge
             label_names = parsed_tests[0].keys()
@@ -100,6 +124,22 @@ class TestCollector(object):
                     [i["test_id"]], i["test_uptime_percent"])
 
             yield uptime_gauge
+
+            # status_cake_test_perf_ms - gauge
+            perf_label_names = [
+                "test_id"
+            ]
+
+            perf_gauge = GaugeMetricFamily(
+                "status_cake_test_perf_time",
+                "Test and their performance time",
+                labels=perf_label_names)
+
+            for i in parsed_test_perf:
+                perf_gauge.add_metric(
+                    [i["test_id"]], i["test_perf_time"])
+
+            yield perf_gauge
 
         except Exception as e:
             logger.error(e)

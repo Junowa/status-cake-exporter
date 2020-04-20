@@ -26,3 +26,15 @@ def get_test_details(apikey, username, test_id):
     response = get(apikey, username, endpoint, params)
 
     return response
+
+
+def get_test_perf(apikey, username, test_id):
+    endpoint = "Tests/Checks/"
+    params = {
+        "TestID": test_id,
+        "Fields": "performance"
+    }
+
+    response = get(apikey, username, endpoint, params)
+
+    return response
